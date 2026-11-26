@@ -387,17 +387,24 @@ pcsc_nif_watch_thread(void *arg)
 
 	while (1) {
 		rv = SCardListReaders(ctx->pnc_context, NULL, NULL, &rdrslen);
-		if (rv != 0) {
+		if (rv == SCARD_E_NO_READERS_AVAILABLE) {
+			rdrslen = 1;
+			rdrs = enif_alloc(rdrslen);
+			rdrs[0] = '\0';
+		} else if (rv != SCARD_S_SUCCESS) {
 			msgenv = enif_alloc_env();
 			err = pcsc_error_term(msgenv, rv);
 			goto error;
-		}
-		rdrs = enif_alloc(rdrslen);
-		rv = SCardListReaders(ctx->pnc_context, NULL, rdrs, &rdrslen);
-		if (rv != 0) {
-			msgenv = enif_alloc_env();
-			err = pcsc_error_term(msgenv, rv);
-			goto error;
+		} else {
+			rdrs = enif_alloc(rdrslen);
+			rv = SCardListReaders(ctx->pnc_context, NULL, rdrs, &rdrslen);
+			if (rv == SCARD_E_NO_READERS_AVAILABLE) {
+				rdrs[0] = '\0';
+			} else if (rv != SCARD_S_SUCCESS) {
+				msgenv = enif_alloc_env();
+				err = pcsc_error_term(msgenv, rv);
+				goto error;
+			}
 		}
 
 		last_time = monotime();
